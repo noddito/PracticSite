@@ -1,0 +1,62 @@
+<?php
+
+use trntv\yii\datetime\DateTimeWidget;
+use yii\grid\ActionColumn;
+use yii\grid\GridView;
+use yii\helpers\Html;
+use yii\web\JsExpression;
+
+/**
+ * @var $this yii\web\View
+ * @var $searchModel common\models\search\TagSearch
+ * @var $dataProvider yii\data\ActiveDataProvider
+ */
+$this->title = Yii::t('common', 'Product Properties');
+$this->params['breadcrumbs'][] = $this->title;
+
+?>
+
+<div class="tag-index">
+
+    <p>
+        <?= Html::a(Yii::t('backend', 'Create Product Property'), ['create'], ['class' => 'btn btn-success']) ?>
+    </p>
+
+    <?= GridView::widget([
+        'dataProvider' => $dataProvider,
+        'filterModel' => $searchModel,
+        'columns' => [
+            'id',
+            'name',
+            [
+                'attribute' => 'created_at',
+                'format' => 'datetime',
+                'filter' => DateTimeWidget::widget([
+                    'model' => $searchModel,
+                    'attribute' => 'created_at',
+                    'phpDatetimeFormat' => 'dd.MM.yyyy',
+                    'momentDatetimeFormat' => 'DD.MM.YYYY',
+                    'clientEvents' => [
+                        'dp.change' => new JsExpression('(e) => $(e.target).find("input").trigger("change.yiiGridView")')
+                    ],
+                ])
+            ],
+            [
+                'attribute' => 'updated_at',
+                'format' => 'datetime',
+                'filter' => DateTimeWidget::widget([
+                    'model' => $searchModel,
+                    'attribute' => 'updated_at',
+                    'phpDatetimeFormat' => 'dd.MM.yyyy',
+                    'momentDatetimeFormat' => 'DD.MM.YYYY',
+                    'clientEvents' => [
+                        'dp.change' => new JsExpression('(e) => $(e.target).find("input").trigger("change.yiiGridView")')
+                    ],
+                ])
+            ],
+            ['class' => ActionColumn::class],
+        ],
+    ]); ?>
+
+
+</div>

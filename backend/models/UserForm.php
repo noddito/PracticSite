@@ -1,0 +1,150 @@
+<?php
+
+declare(strict_types=1);
+
+namespace backend\models;
+
+use common\models\User;
+use JetBrains\PhpStorm\ArrayShape;
+use Yii;
+use yii\base\Exception;
+use yii\base\Model;
+use yii\db\ActiveQuery;
+use yii\helpers\ArrayHelper;
+
+/**
+ * Create user form
+ */
+class UserForm extends Model
+{
+    public $username;
+
+    public $email;
+
+    public $password;
+
+    public $status;
+
+    public $roles;
+
+    public $model;
+
+    /**
+     * @inheritdoc
+     */
+    public function rules(): array
+    {
+        return [
+            ['username', 'filter', 'filter' => 'trim'],
+            ['username', 'required'],
+            ['username', 'unique', 'targetClass' => User::class, 'filter' => function ($query) {
+                if (!$this->getModel()->isNewRecord) {
+                    /** @var $query ActiveQuery */
+                    $query->andWhere(['not', ['id' => $this->getModel()->id]]);
+                }
+            }],
+            ['username', 'string', 'min' => 2, 'max' => 255],
+
+            ['email', 'filter', 'filter' => 'trim'],
+            ['email', 'required'],
+            ['email', 'email'],
+            ['email', 'unique', 'targetClass' => User::class, 'filter' => function ($query) {
+                if (!$this->getModel()->isNewRecord) {
+                    /** @var $query ActiveQuery */
+                    $query->andWhere(['not', ['id' => $this->getModel()->id]]);
+                }
+            }],
+
+            ['password', 'required'],
+            ['password', 'string', 'min' => 6],
+            ['phone', 'safe'],
+            [['status'], 'integer'],
+            [['roles'], 'each',
+                'rule' => ['in', 'range' => ArrayHelper::getColumn(
+                    Yii::$app->authManager->getRoles(),
+                    'name'
+                )]
+            ],
+        ];
+    }
+
+    /**
+     * @return User
+     */
+    public function getModel(): User
+    {
+        if (!$this->model) {
+            $this->model = new User();
+        }
+        return $this->model;
+    }
+
+    /**
+     * @param User $model
+     * @return User
+     */
+    public function setModel(User $model): User
+    {
+        $this->username = $model->username;
+        $this->email = $model->email;
+        $this->status = $model->status;
+        $this->model = $model;
+        $this->roles = ArrayHelper::getColumn(
+            Yii::$app->authManager->getRolesByUser($model->getId()),
+            'name'
+        );
+        return $this->model;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    #[ArrayShape(['username' => "string", 'email' => "string", 'status' => "string", 'password' => "string", 'roles' => "string"])] public function attributeLabels(): array
+    {
+        return [
+            'username' => Yii::t('common', 'Username'),
+            'email' => Yii::t('common', 'Email'),
+            'status' => Yii::t('common', 'User Status'),
+            'password' => Yii::t('common', 'Password'),
+            'roles' => Yii::t('common', 'Roles')
+        ];
+    }
+
+    /**
+     * Signs user up.
+     * @return bool|null
+     * @throws Exception
+     * @throws \Exception
+     */
+    public function save(): ?bool
+    {
+        if ($this->validate()) {
+            $model = $this->getModel();
+            $isNewRecord = $model->getIsNewRecord();
+            $model->username = $this->username;
+            $model->email = $this->email;
+            $model->status = 2;
+            if ($this->password) {
+                $model->setPassword($this->password);
+            }
+            if (!$model->save()) {
+                throw new Exception('Model not saved');
+            }
+            if ($isNewRecord) {
+                $model->afterSignup();
+            }
+            $auth = Yii::$app->authManager;
+            $auth->revokeAll($model->getId());
+
+            if ($this->roles && is_array($this->roles)) {
+                foreach ($this->roles as $role) {
+                    $auth->assign($auth->getRole($role), $model->getId());
+                }
+            }
+
+            return !$model->hasErrors();
+        }
+
+        return null;
+    }
+}
